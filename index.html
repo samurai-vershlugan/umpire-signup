@@ -224,7 +224,7 @@ const SCHEDULE = [
     date: "2026-03-11",
     games: [
       { id: "wed-1", age: "10U", field: "Bernard Hoffman (Field 2)", time: "5:30 – 7:00 PM" },
-      { id: "wed-2", age: "12U",    field: "Bernard Hoffman (Field 1)", time: "4:30 – 5:30 PM" },
+      { id: "wed-2", age: "12U", field: "Bernard Hoffman (Field 1)", time: "4:30 – 5:30 PM", maxUmpires: 2 },
     ]
   }
 ];
@@ -260,12 +260,13 @@ const getExp     = (gameId) => allSignups.find(r  => r.game_id === gameId &&  r.
 
 // ── Render ────────────────────────────────────────────────────────
 function renderGame(game) {
+  const maxU   = game.maxUmpires || MAX_UMPIRES;
   const list   = getRegular(game.id);
   const expUmp = getExp(game.id);
-  const isFull = list.length >= MAX_UMPIRES;
+  const isFull = list.length >= maxU;
   const isOpen = expandedGames.has(game.id);
 
-  const slots = Array.from({ length: MAX_UMPIRES }, (_, i) => {
+  const slots = Array.from({ length: maxU }, (_, i) => {
     const u = list[i];
     return u
       ? `<div class="slot filled">
@@ -296,7 +297,7 @@ function renderGame(game) {
          <div class="slot-content"><div class="slot-empty-text">Open slot</div></div>
        </div>`;
 
-  const pill = `<span class="count-pill ${list.length > 0 ? 'has-signups' : ''}">${list.length}/${MAX_UMPIRES} umpires${expUmp ? ' · ★ exp' : ''}</span>`;
+  const pill = `<span class="count-pill ${list.length > 0 ? 'has-signups' : ''}">${list.length}/${maxU} umpires${expUmp ? ' · ★ exp' : ''}</span>`;
 
   return `<div class="game-card ${isOpen ? 'open' : ''}" id="card-${game.id}">
     <div class="game-header" onclick="toggleGame('${game.id}')">
@@ -361,18 +362,31 @@ function renderAll() {
 }
 
 // ── Sign-up handlers ──────────────────────────────────────────────
+function isGameFull(gameId) {
+  const game = SCHEDULE.flatMap(d => d.games).find(g => g.id === gameId);
+  const maxU = game ? (game.maxUmpires || MAX_UMPIRES) : MAX_UMPIRES;
+  return getRegular(gameId).length >= maxU && !!getExp(gameId);
+}
+
 async function handleSignup(gameId) {
   const input = document.getElementById(`input-${gameId}`);
   const btn   = document.getElementById(`btn-${gameId}`);
   const name  = input.value.trim();
+  const game  = SCHEDULE.flatMap(d => d.games).find(g => g.id === gameId);
+  const maxU  = game ? (game.maxUmpires || MAX_UMPIRES) : MAX_UMPIRES;
   if (!name) { flashError(input); return; }
-  if (getRegular(gameId).length >= MAX_UMPIRES) { toast('Game is already full!', true); return; }
+  if (getRegular(gameId).length >= maxU) { toast('Game is already full!', true); return; }
   btn.disabled = true;
   try {
     const rows = await insertSignup(gameId, name, false);
     allSignups.push(rows[0]);
-    expandedGames.add(gameId);
-    toast(`✓ ${name} signed up!`);
+    if (isGameFull(gameId)) {
+      expandedGames.delete(gameId);
+      toast(`✓ ${name} signed up! All slots filled 🎉`);
+    } else {
+      expandedGames.add(gameId);
+      toast(`✓ ${name} signed up!`);
+    }
     renderAll();
   } catch { toast('Error saving — try again', true); btn.disabled = false; }
 }
@@ -387,8 +401,13 @@ async function handleExpSignup(gameId) {
   try {
     const rows = await insertSignup(gameId, name, true);
     allSignups.push(rows[0]);
-    expandedGames.add(gameId);
-    toast(`★ ${name} signed up as experienced umpire!`);
+    if (isGameFull(gameId)) {
+      expandedGames.delete(gameId);
+      toast(`★ ${name} signed up! All slots filled 🎉`);
+    } else {
+      expandedGames.add(gameId);
+      toast(`★ ${name} signed up as experienced umpire!`);
+    }
     renderAll();
   } catch { toast('Error saving — try again', true); btn.disabled = false; }
 }
@@ -458,8 +477,10 @@ function esc(s) {
 async function init() {
   try {
     allSignups = await loadSignups();
-    // Auto-expand all games
-    SCHEDULE.forEach(day => day.games.forEach(g => expandedGames.add(g.id)));
+    // Auto-expand all games, except those already full
+    SCHEDULE.forEach(day => day.games.forEach(g => {
+      if (!isGameFull(g.id)) expandedGames.add(g.id);
+    }));
     renderAll();
   } catch(e) {
     document.getElementById('app').innerHTML =
