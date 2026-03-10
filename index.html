@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SRGS Umpire Sign-Up</title>
+<title>SRGS Scrimmage Week</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -174,7 +174,7 @@
 <header>
   <div class="diamond-icon"></div>
   <h1>SRGS<span>Scrimmage Week</span></h1>
-  <p class="subtitle">Up to 4 umpires + 1 experienced umpire per game</p>
+  <p class="subtitle">Up to 4 new + 1 experienced ump per game</p>
   <div class="rule"></div>
 </header>
 
@@ -204,17 +204,19 @@ const MAX_UMPIRES  = 4;
 
 const SCHEDULE = [
   {
-    day: "Monday, March 9",
+    day: "Monday, March 9, 2026",
+    date: "2026-03-09",
     games: [
-      { id: "mon-1", age: "8U",  field: "BH 1", time: "4:00 – 5:30 PM" },
-      { id: "mon-2", age: "8U",  field: "BH 2", time: "5:30 – 7:00 PM" },
-      { id: "mon-3", age: "10U", field: "BH 1", time: "5:30 – 7:00 PM" },
+      { id: "mon-1", age: "8U",  field: "Bernard Hoffman (Field 1)", time: "4:00 – 5:30 PM" },
+      { id: "mon-2", age: "8U",  field: "Bernard Hoffman (Field 2)", time: "5:30 – 7:00 PM" },
+      { id: "mon-3", age: "10U", field: "Bernard Hoffman (Field 1)", time: "5:30 – 7:00 PM" },
     ]
   },
   {
-    day: "Wednesday, March 11",
+    day: "Wednesday, March 11, 2026",
+    date: "2026-03-11",
     games: [
-      { id: "wed-1", age: "10U", field: "BH 2", time: "5:30 – 7:00 PM" },
+      { id: "wed-1", age: "10U", field: "Bernard Hoffman (Field 2)", time: "5:30 – 7:00 PM" },
     ]
   }
 ];
@@ -326,7 +328,21 @@ function renderGame(game) {
 }
 
 function renderAll() {
-  document.getElementById('app').innerHTML = SCHEDULE.map(day => `
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const upcomingDays = SCHEDULE.filter(day => {
+    const dayDate = new Date(day.date + 'T00:00:00');
+    return dayDate >= today;
+  });
+
+  if (upcomingDays.length === 0) {
+    document.getElementById('app').innerHTML =
+      `<div class="loading-bar" style="color:var(--slate)">🥎 Scrimmage week is complete!<br>No upcoming games to sign up for.</div>`;
+    return;
+  }
+
+  document.getElementById('app').innerHTML = upcomingDays.map(day => `
     <div class="day-block">
       <div class="day-header">
         <span class="day-label">${day.day}</span>
